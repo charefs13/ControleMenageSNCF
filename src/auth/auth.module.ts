@@ -1,4 +1,3 @@
-// src/auth/auth.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
@@ -6,15 +5,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { UsersModule } from '../users/users.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MailModule } from '../mail/mail.module.js'; // ← import du module Mail
 
-/**
- * Module Auth
- * - Contient service, controller et stratégies
- */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     forwardRef(() => UsersModule),
+    MailModule, // ← ajoute MailModule ici
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

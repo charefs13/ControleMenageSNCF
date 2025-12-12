@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { Utilisateur } from '../../generated/prisma/client';
+import { MailService } from '../mail/mail.service.js';
 
 /**
  * Service de gestion de l'authentification.
@@ -26,7 +27,8 @@ export class AuthService {
   constructor(
     private usersService: UsersService,  // Accès aux données des utilisateurs
     private jwtService: JwtService,      // Gestion JWT (signature, vérification)
-    private prisma: PrismaService,       // Accès direct à Prisma si nécessaire
+    private prisma: PrismaService,  
+    private mailService: MailService,     // Accès direct à Prisma si nécessaire
   ) { }
 
   /**
@@ -179,4 +181,26 @@ export class AuthService {
       return null; // Le contrôleur gérera l’erreur
     }
   }
+
+  async resetPassword(email: string) {
+    // Vérifie que l'utilisateur existe
+    const user = await this.prisma.utilisateur.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Génère un token pour l'utilisateur et le stocke en base, cette fonction retourne token
+  const {token} = await this.generateTokenForUser(user.cp)
+
+
+    // Crée le lien complet pour le frontend
+    const resetLink = `${process.env.FRONTEND_URL}/update-password/?cp=${user.cp}&token=${token}`;
+
+    // Envoie l'email (voir étape suivante)
+await this.mailService.sendResetPasswordEmail(user.email, resetLink);
+
+    return { message: 'Email de réinitialisation envoyé' };
+  }
+
+
 }

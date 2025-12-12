@@ -97,7 +97,7 @@ class TokensResponse {
 @ApiTags('auth') // Toutes les routes apparaîtront sous "auth" dans Swagger
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   /**
    * POST /auth/login
@@ -182,6 +182,25 @@ export class AuthController {
 
     return { message: 'Mot de passe mis à jour avec succès.' };
   }
+/**
+ * POST /auth/reset-password
+ * Réinitialisation du mot de passe pour un utilisateur donné.
+ *
+ */
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Réinitialisation du mot de passe utilisateur' })
+  async resetPassword(@Body('email') email: string) {
+    // Vérifie que le corps de la requête contient bien un email
+    if (!email) {
+      // Si l'email est manquant, renvoie une exception 400 Bad Request
+      throw new BadRequestException('Email requis');
+    }
+
+    // Appelle le service d'authentification pour générer un token de réinitialisation
+    // et envoyer un email à l'utilisateur avec le lien de reset
+    return this.authService.resetPassword(email);
+  }
+
 }
 
 

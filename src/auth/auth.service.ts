@@ -13,6 +13,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Role, Utilisateur } from '../../generated/prisma/client';
 import { MailService } from '../mail/mail.service.js';
 
+type ResetTokenPayload = {
+  sub?: string;
+  cp?: string;
+  email: string;
+  role: Role;
+};
+
 /**
  * Service de gestion de l'authentification.
  *
@@ -100,9 +107,6 @@ async login(cp: string, password: string) {
   };
 }
 
-
- 
-
   /**
    * Génère un token pour un utilisateur donné.
    * Utilisé principalement pour des liens uniques (reset password).
@@ -130,6 +134,7 @@ async login(cp: string, password: string) {
 
     const token = this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET,
+      expiresIn: '1h',
     });
 
     // Stockage du token en base (utilisé pour onboarding / reset)
@@ -139,6 +144,26 @@ async login(cp: string, password: string) {
     });
 
     return { token };
+  }
+
+  async validateResetToken(token: string) {
+    if (!token) {
+      throw new BadRequestException('Token requis');
+    }
+
+    const payload = this.verifyToken(token) as ResetTokenPayload | null;
+    const cp = payload?.sub ?? payload?.cp;
+
+    if (!cp) {
+      throw new UnauthorizedException('Token invalide ou expiré');
+    }
+
+    const user = await this.usersService.findOne(cp);
+    if (!user || user.authToken !== token) {
+      throw new UnauthorizedException('Token invalide ou expiré');
+    }
+
+    return { valid: true, cp: user.cp };
   }
 
   /**
@@ -157,15 +182,14 @@ async login(cp: string, password: string) {
     throw new BadRequestException('Nouveau mot de passe requis');
   }
 
-  let payload: { sub: string; email: string; role: Role };
-  try {
-    payload = this.verifyToken(token) as { sub: string; email: string; role: Role };
-  } catch {
+  const payload = this.verifyToken(token) as ResetTokenPayload | null;
+  const cp = payload?.sub ?? payload?.cp;
+  if (!cp) {
     throw new UnauthorizedException('Token invalide ou expiré');
   }
 
   // Vérifie que l'utilisateur existe et que le token correspond
-  const user = await this.usersService.findOne(payload.sub);
+  const user = await this.usersService.findOne(cp);
   if (!user || user.authToken !== token) {
     throw new UnauthorizedException('Token invalide ou déjà utilisé');
   }
@@ -175,16 +199,14 @@ async login(cp: string, password: string) {
 
   // Mise à jour sécurisée du mot de passe en base
   await this.prisma.utilisateur.update({
-    where: { cp: payload.sub },
+    where: { cp },
     data: {
       mdp: hashedPassword,
       authToken: null, // Invalide le token après utilisation
     },
   });
-
   return { message: 'Mot de passe mis à jour' };
 }
-
 
   /**
    * Vérifie un token JWT.
@@ -206,15 +228,15 @@ async login(cp: string, password: string) {
   }
 
   async resetPassword(email: string) {
-    // Vérifie que l'utilisateur existe
+    try {
+       // Vérifie que l'utilisateur existe
     const user = await this.prisma.utilisateur.findUnique({ where: { email } });
     if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
+    return { message: "Si l'utilisateur existe, un email de réinitialisation a été envoyé." };
     }
-
+  
     // Génère un token pour l'utilisateur et le stocke en base, cette fonction retourne token
     const { token } = await this.generateTokenForUser(user.cp)
-
 
     // Crée le lien complet pour le frontend
     const resetLink = `${process.env.FRONTEND_URL}/update-password/?cp=${user.cp}&token=${token}`;
@@ -222,7 +244,12 @@ async login(cp: string, password: string) {
     // Envoie l'email (voir étape suivante)
     await this.mailService.sendResetPasswordEmail(user.email, resetLink);
 
-    return { message: 'Email de réinitialisation envoyé' };
+    return { message: "Si l'utilisateur existe, un email de réinitialisation a été envoyé." };
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation du mot de passe :', error);
+      throw new BadRequestException('Impossible de traiter la demande de réinitialisation du mot de passe' + error);
+    }
+   
   }
 
   // Accepte les conditions d'utilisation première connection

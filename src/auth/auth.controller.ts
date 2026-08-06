@@ -1,5 +1,7 @@
 import {
   Controller,        // Décorateur pour définir un controller NestJS
+  HttpCode,
+  HttpStatus,
   Post,              // Décorateur pour route POST
   Patch,             // Décorateur pour route PATCH
   Body,              // Décorateur pour récupérer le corps de la requête
@@ -76,6 +78,7 @@ export class AuthController {
    * Retourne { acceptedTerms } et pose le cookie HttpOnly
    */
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion utilisateur' })
   @ApiBody({
     schema: {
@@ -168,6 +171,33 @@ async acceptTerms(@Req() req: Request) {
   }
 
   /**
+   * POST /auth/validate-reset-token
+   * Vérifie qu'un lien de création/réinitialisation de mot de passe est encore valable.
+   */
+  @Post('validate-reset-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Valider un token de réinitialisation du mot de passe' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string', example: 'jwt-reset-token' },
+      },
+      required: ['token'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Token valide' })
+  @ApiResponse({ status: 401, description: 'Token invalide ou expiré' })
+  async validateResetToken(@Body() body: { token: string }) {
+    const { token } = body;
+    if (!token) {
+      throw new BadRequestException('Token requis');
+    }
+
+    return this.authService.validateResetToken(token);
+  }
+
+  /**
    * POST /auth/update-password
    * Met à jour le mot de passe via token JWT
    */
@@ -208,12 +238,10 @@ async updatePassword(
     throw new UnauthorizedException('Token invalide ou expiré');
   }
 
-  // ✅ PASSER LE TOKEN COMPLET AU SERVICE
   await this.authService.updatePassword(token, newPassword);
 
   return { message: 'Mot de passe mis à jour avec succès' };
 }
-
 
   /**
  * POST /auth/logout

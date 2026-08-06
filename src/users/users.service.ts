@@ -41,6 +41,7 @@ export class UsersService {
     }
 
     const tokenPayload = {
+      sub: createUserDto.cp,
       cp: createUserDto.cp,
       email: createUserDto.email,
       role: createUserDto.role ?? Role.UTILISATEUR,
@@ -59,7 +60,7 @@ export class UsersService {
       },
     });
 
-    const resetLink = `${process.env.FRONTEND_URL}/update-password/?cp=${user.cp}&token=${authToken}`;
+    const resetLink = `${process.env.FRONTEND_URL}/update-password?cp=${encodeURIComponent(user.cp)}&token=${encodeURIComponent(authToken)}`;
 
     await this.mailService.sendCreatePasswordEmail(user.email, resetLink);
 

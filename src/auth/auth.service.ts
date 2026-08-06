@@ -239,7 +239,7 @@ async login(cp: string, password: string) {
     const { token } = await this.generateTokenForUser(user.cp)
 
     // Crée le lien complet pour le frontend
-    const resetLink = `${process.env.FRONTEND_URL}/update-password/?cp=${user.cp}&token=${token}`;
+    const resetLink = `${process.env.FRONTEND_URL}/update-password?cp=${encodeURIComponent(user.cp)}&token=${encodeURIComponent(token)}`;
 
     // Envoie l'email (voir étape suivante)
     await this.mailService.sendResetPasswordEmail(user.email, resetLink);
